@@ -77,6 +77,7 @@ chmod +x /usr/local/bin/backup
 chmod +x /usr/local/bin/checkjson
 chmod +x /usr/local/bin/limit-monitor
 chmod +x /usr/local/bin/expire-check
+chmod +x /usr/local/bin/*
 
 systemctl restart xray
 
