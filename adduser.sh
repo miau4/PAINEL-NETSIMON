@@ -21,8 +21,8 @@ SID="6ba85179e30d4fc2"
 # Calcular data de expiração
 EXP=$(date -d "+$validade days" +"%Y-%m-%d")
 
-# Adicionar nos inbounds
-for i in 1 2 3; do
+# Adicionar nos inbounds do Xray
+for i in 0 1 2 3; do
   jq ".inbounds[$i].settings.clients += [{\"id\":\"$UUID\",\"email\":\"$user\"}]" $CONFIG > /tmp/config.json
   mv /tmp/config.json $CONFIG
 done
@@ -38,7 +38,7 @@ echo "$user:$password" | chpasswd
 systemctl restart xray
 
 # Mostrar links
-echo -e "\nUsuário criado com sucesso!"
+echo -e "\n${user} criado com sucesso!"
 echo "Nome: $user"
 echo "Senha: $password"
 echo "UUID: $UUID"
