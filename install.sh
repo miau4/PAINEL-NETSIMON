@@ -54,11 +54,11 @@ cat > /etc/xray/config.json <<EOF
 }
 EOF
 
-curl -o /usr/local/bin/menu https://raw.githubusercontent.com/SEUUSUARIO/xray-manager-mult/main/menu.sh
-curl -o /usr/local/bin/adduser https://raw.githubusercontent.com/SEUUSUARIO/xray-manager-mult/main/adduser.sh
-curl -o /usr/local/bin/deluser https://raw.githubusercontent.com/SEUUSUARIO/xray-manager-mult/main/deluser.sh
-curl -o /usr/local/bin/online https://raw.githubusercontent.com/SEUUSUARIO/xray-manager-mult/main/online.sh
-curl -o /usr/local/bin/rebuild https://raw.githubusercontent.com/SEUUSUARIO/xray-manager-mult/main/rebuild.sh
+curl -o /usr/local/bin/menu https://raw.githubusercontent.com/miau4/xray-manager-mult/main/menu.sh
+curl -o /usr/local/bin/adduser https://raw.githubusercontent.com/miau4/xray-manager-mult/main/adduser.sh
+curl -o /usr/local/bin/deluser https://raw.githubusercontent.com/miau4/xray-manager-mult/main/deluser.sh
+curl -o /usr/local/bin/online https://raw.githubusercontent.com/miau4/xray-manager-mult/main/online.sh
+curl -o /usr/local/bin/rebuild https://raw.githubusercontent.com/miau4/xray-manager-mult/main/rebuild.sh
 
 chmod +x /usr/local/bin/menu
 chmod +x /usr/local/bin/adduser
