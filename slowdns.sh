@@ -66,3 +66,20 @@ while true; do
         *) echo -e "${RED}Opção inválida!${NC}" ; sleep 1 ;;
     esac
 done
+
+#!/bin/bash
+echo "SlowDNS Manager"
+echo "1) Instalar SlowDNS"
+echo "2) Desinstalar SlowDNS"
+echo "3) Status do serviço"
+echo "0) Voltar"
+read -p "Escolha: " opt
+
+case $opt in
+1) bash /usr/local/bin/slowdns.sh install ;;
+2) bash /usr/local/bin/slowdns.sh uninstall ;;
+3) systemctl status slowdns ;;
+0) exit ;;
+*) echo "Opção inválida" ;;
+esac
+
