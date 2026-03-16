@@ -6,6 +6,10 @@ echo "Instalando XRAY MANAGER..."
 apt update -y
 apt install -y curl jq uuid-runtime ufw
 
+echo "Instalando Xray..."
+
+bash <(curl -Ls https://github.com/XTLS/Xray-install/raw/main/install-release.sh)
+
 mkdir -p /etc/xray
 mkdir -p /etc/xray-manager
 mkdir -p /var/log/xray
@@ -30,10 +34,67 @@ cat > /etc/xray/config.json <<EOF
 "loglevel": "warning"
 },
 
+"api": {
+"services": [
+"HandlerService",
+"LoggerService",
+"StatsService"
+],
+"tag": "api"
+},
+
+"stats": {},
+
+"policy": {
+"levels": {
+"0": {
+"statsUserDownlink": true,
+"statsUserUplink": true,
+"statsUserOnline": true
+}
+}
+},
+
 "inbounds": [
 
 {
+"tag": "api",
+"listen": "127.0.0.1",
+"port": 10085,
+"protocol": "dokodemo-door",
+"settings": {
+"address": "127.0.0.1"
+}
+},
+
+{
 "port": 443,
+"protocol": "vless",
+"settings": {
+"clients": [],
+"decryption": "none"
+},
+"streamSettings": {
+"network": "xhttp",
+"security": "tls",
+"tlsSettings": {
+"alpn": ["http/1.1"],
+"certificates": [
+{
+"certificateFile": "/etc/xray/fullchain.pem",
+"keyFile": "/etc/xray/privkey.pem"
+}
+]
+},
+"xhttpSettings": {
+"path": "/",
+"host": ""
+}
+}
+},
+
+{
+"port": 8443,
 "protocol": "vless",
 "settings": {
 "clients": []
@@ -42,9 +103,9 @@ cat > /etc/xray/config.json <<EOF
 "network": "tcp",
 "security": "reality",
 "realitySettings": {
-"dest": "www.cloudflare.com:443",
+"dest": "[www.cloudflare.com:443](http://www.cloudflare.com:443)",
 "serverNames": [
-"www.cloudflare.com"
+"[www.cloudflare.com](http://www.cloudflare.com)"
 ],
 "privateKey": "$PRIVATE",
 "shortIds": [
@@ -102,7 +163,17 @@ cat > /etc/xray/config.json <<EOF
 {
 "protocol": "freedom"
 }
+],
+
+"routing": {
+"rules": [
+{
+"type": "field",
+"protocol": ["bittorrent"],
+"outboundTag": "blocked"
+}
 ]
+}
 }
 EOF
 
@@ -130,20 +201,19 @@ chmod +x /usr/local/bin/*
 echo "Configurando tarefas automáticas..."
 
 (crontab -l 2>/dev/null; echo "0 3 * * * expire") | crontab -
-(crontab -l 2>/dev/null; echo "* * * * * limit-monitor") | crontab -
-(crontab -l 2>/dev/null; echo "0 3 * * * expire-check") | crontab -
 
 echo "Abrindo portas..."
 
 ufw allow 53
 ufw allow 5300
-ufw allow 7300
 ufw allow 80
 ufw allow 443
+ufw allow 8443
 ufw allow 8080
 ufw allow 8880
 
 systemctl restart xray
+systemctl enable xray
 
 echo ""
 echo "INSTALAÇÃO CONCLUÍDA"
