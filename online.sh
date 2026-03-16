@@ -1,7 +1,18 @@
 #!/bin/bash
 
 LOG="/var/log/xray/access.log"
+DB="/etc/xray-manager/users.db"
 
-echo "Usuarios online"
+echo "Usuarios online:"
+echo ""
 
-grep accepted $LOG | awk '{print $3}' | sort | uniq -c
+while IFS=: read USER UUID
+do
+
+COUNT=$(grep $UUID $LOG | wc -l)
+
+if [ "$COUNT" -gt 0 ]; then
+echo "$USER - $COUNT conexao(oes)"
+fi
+
+done < $DB
