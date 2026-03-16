@@ -141,6 +141,9 @@ curl -o /usr/local/bin/limit-monitor https://raw.githubusercontent.com/miau4/xra
 curl -o /usr/local/bin/expire-check https://raw.githubusercontent.com/miau4/xray-manager-mult/main/expire-check.sh
 curl -o /usr/local/bin/update-xray https://raw.githubusercontent.com/miau4/xray-manager-mult/main/update.sh
 curl -o /usr/local/bin/slowdns https://raw.githubusercontent.com/miau4/xray-manager-mult/main/slowdns.sh
+curl -o /usr/local/bin/speedtest https://raw.githubusercontent.com/miau4/xray-manager-mult/main/speedtest.sh
+curl -o /usr/local/bin/ssh-manager https://raw.githubusercontent.com/miau4/xray-manager-mult/main/ssh-manager.sh
+curl -o /usr/local/bin/uninstall-xray https://raw.githubusercontent.com/miau4/xray-manager-mult/main/uninstall.sh
 
 chmod +x /usr/local/bin/*
 
