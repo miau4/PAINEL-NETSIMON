@@ -4,7 +4,7 @@ set -e
 echo "Instalando XRAY MANAGER..."
 
 apt update -y
-apt install -y curl jq uuid-runtime badvpn ufw
+apt install -y curl jq uuid-runtime ufw
 
 mkdir -p /etc/xray
 mkdir -p /etc/xray-manager
@@ -19,26 +19,6 @@ PUBLIC=$(echo "$KEYS" | grep Public | awk '{print $3}')
 
 echo "PRIVATE=$PRIVATE" > /etc/xray-manager/reality.key
 echo "PUBLIC=$PUBLIC" >> /etc/xray-manager/reality.key
-
-echo "Configurando BadVPN..."
-
-cat > /etc/systemd/system/badvpn.service <<EOF
-[Unit]
-Description=BadVPN UDPGW Service
-After=network.target
-
-[Service]
-ExecStart=/usr/bin/badvpn-udpgw --listen-addr 0.0.0.0:7300
-Restart=always
-User=root
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable badvpn
-systemctl start badvpn
 
 echo "Criando config do Xray..."
 
