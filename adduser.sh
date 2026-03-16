@@ -49,3 +49,8 @@ echo "vless://$UUID@$IP:443?encryption=none&type=xhttp&security=tls&path=/#${use
 echo ""
 echo "LINK VLESS REALITY:"
 echo "vless://$UUID@$IP:443?encryption=none&security=reality&type=tcp&sni=$SNI&fp=chrome&pbk=$PUBLIC&sid=$SID&flow=xtls-rprx-vision#$user"
+
+if grep -q "^$user:" /etc/xray-manager/users.xray; then
+    echo "Erro: usuário já existe!"
+    exit 1
+fi
