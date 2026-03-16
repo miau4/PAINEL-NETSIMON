@@ -28,7 +28,9 @@ cat > /etc/xray/config.json <<EOF
 "error": "/var/log/xray/error.log",
 "loglevel": "warning"
 },
+
 "inbounds": [
+
 {
 "port": 443,
 "protocol": "vless",
@@ -49,8 +51,52 @@ cat > /etc/xray/config.json <<EOF
 ]
 }
 }
+},
+
+{
+"port": 80,
+"protocol": "vless",
+"settings": {
+"clients": []
+},
+"streamSettings": {
+"network": "ws",
+"security": "none",
+"wsSettings": {
+"path": "/vless"
 }
+}
+},
+
+{
+"port": 8080,
+"protocol": "vmess",
+"settings": {
+"clients": []
+},
+"streamSettings": {
+"network": "ws",
+"security": "none",
+"wsSettings": {
+"path": "/vmess"
+}
+}
+},
+
+{
+"port": 8880,
+"protocol": "vless",
+"settings": {
+"clients": []
+},
+"streamSettings": {
+"network": "tcp",
+"security": "none"
+}
+}
+
 ],
+
 "outbounds": [
 {
 "protocol": "freedom"
