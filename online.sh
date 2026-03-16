@@ -27,3 +27,20 @@ done
 for u in "${offline_list[@]}"; do
     echo -e "$u"
 done
+
+#!/bin/bash
+USERS="/etc/xray-manager/users.xray"
+
+echo -e "Tempo conectado dos usuários:"
+
+while IFS=: read -r name pass uuid exp; do
+    # Verificar se o usuário está online no log
+    last_login=$(grep "$uuid" /var/log/xray/access.log | tail -n1 | awk '{print $1" "$2}')
+    if [ -n "$last_login" ]; then
+        # Calcular tempo online em minutos
+        online_time=$(( ($(date +%s) - $(date -d "$last_login" +%s)) / 60 ))
+    else
+        online_time=0
+    fi
+    echo "$name - $online_time minutos"
+done < "$USERS"
