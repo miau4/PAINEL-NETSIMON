@@ -1,5 +1,7 @@
 #!/bin/bash
 
-echo "Usuarios conectados"
+LOG="/var/log/xray/access.log"
 
-grep accepted /var/log/xray/access.log | awk '{print $3}' | sort | uniq -c
+echo "Usuarios online"
+
+grep accepted $LOG | awk '{print $3}' | sort | uniq -c
