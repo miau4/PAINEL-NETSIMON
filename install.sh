@@ -16,6 +16,11 @@ KEYS=$(xray x25519)
 PRIVATE=$(echo "$KEYS" | grep Private | awk '{print $3}')
 PUBLIC=$(echo "$KEYS" | grep Public | awk '{print $3}')
 
+mkdir -p /etc/xray-manager
+
+echo "PRIVATE=$PRIVATE" > /etc/xray-manager/reality.key
+echo "PUBLIC=$PUBLIC" >> /etc/xray-manager/reality.key
+
 cat > /etc/xray/config.json <<EOF
 {
 "log": {
