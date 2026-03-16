@@ -1,5 +1,6 @@
 #!/bin/bash
 
+IP=$(curl -s ifconfig.me)
 CONFIG="/etc/xray/config.json"
 USERDB="/etc/xray-manager/users.db"
 LOG="/var/log/xray/access.log"
