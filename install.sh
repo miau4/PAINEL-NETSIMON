@@ -215,6 +215,8 @@ chmod +x /usr/local/bin/slowdns
 chmod +x /usr/local/bin/speedtest
 chmod +x /usr/local/bin/ssh-manager
 chmod +x /usr/local/bin/uninstall-xray
+chmod +x /etc/xray-manager/monitor.sh
+chmod +x /etc/xray-manager/*.sh
 
 echo "Configurando tarefas automáticas..."
 
