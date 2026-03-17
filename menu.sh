@@ -6,252 +6,197 @@ RED='\033[1;31m'
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[1;36m'
-LILAC='\033[1;35m'
+BLUE='\033[1;34m'
 NC='\033[0m'
 
 CONFIG="/etc/xray/config.json"
 USERS="/etc/xray-manager/users.xray"
-KEYFILE="/etc/xray-manager/reality.key"
 
-# ----------------- FUNÇÕES -----------------
-status_service() {
-    local svc=$1
-    if systemctl is-active --quiet "$svc"; then
-        echo -e "${GREEN}ATIVO${NC}"
-    else
-        echo -e "${RED}INATIVO${NC}"
-    fi
+# ----------------- ANIMAÇÃO -----------------
+loading() {
+    echo -ne "${CYAN}Carregando"
+    for i in {1..3}; do
+        echo -ne "."
+        sleep 0.3
+    done
+    echo -e "${NC}"
 }
 
-port_service() {
-    local svc=$1
-    case $svc in
-        xray)
-            jq -r '.inbounds[].port' $CONFIG | tr '\n' ',' | sed 's/,$//'
-            ;;
-        ssh)
-            echo "22"
-            ;;
-        slowdns)
-            echo "5300"
-            ;;
-        ws)
-            jq -r '.inbounds[] | select(.protocol=="vless" or .protocol=="vmess") | .port' $CONFIG | tr '\n' ',' | sed 's/,$//'
-            ;;
-        *)
-            echo "-"
-            ;;
-    esac
+# ----------------- PORTA EM USO -----------------
+check_port() {
+    porta=$1
+    if lsof -i:$porta >/dev/null 2>&1; then
+        proc=$(lsof -i:$porta | awk 'NR==2 {print $1}')
+        echo -e "${RED}Porta $porta já está em uso pelo processo: $proc${NC}"
+        return 1
+    fi
+    return 0
 }
 
 # ----------------- MENU PRINCIPAL -----------------
 main_menu() {
     while true; do
         clear
-        echo -e "${LILAC}╔══════════════════════════════════════╗${NC}"
-        echo -e "${CYAN}   █ P A I N E L  N E T S I M O N █   ${NC}"
-        echo -e "${LILAC}╠══════════════════════════════════════╣${NC}"
-        echo -e "${LILAC}1) Gerenciar Usuários${NC}"
-        echo -e "${LILAC}2) CONEXOES${NC}"
-        echo -e "${LILAC}3) Info dos Serviços${NC}"
-        echo -e "${LILAC}0) Sair${NC}"
-        echo -e "${LILAC}╚══════════════════════════════════════╝${NC}"
-        read -p "Escolha uma opção: " opt
+        echo -e "${BLUE}╔════════════════════════════════════════════╗${NC}"
+        echo -e "${CYAN}        ⚡ PAINEL NETSIMON ⚡               ${NC}"
+        echo -e "${BLUE}╠════════════════════════════════════════════╣${NC}"
+        echo -e "${GREEN} 1) Gerenciar Usuários${NC}"
+        echo -e "${GREEN} 2) Conexões${NC}"
+        echo -e "${GREEN} 3) Info Serviços${NC}"
+        echo -e "${RED} 0) Sair${NC}"
+        echo -e "${BLUE}╚════════════════════════════════════════════╝${NC}"
+        read -p "Escolha: " opt
+
         case $opt in
             1) users_menu ;;
             2) conexoes_menu ;;
             3) info_servicos ;;
-            0) exit 0 ;;
-            *) echo "Opção inválida"; sleep 1 ;;
+            0) exit ;;
+            *) echo "Inválido"; sleep 1 ;;
         esac
     done
 }
 
-# ----------------- GERENCIAR USUÁRIOS -----------------
+# ----------------- USUÁRIOS -----------------
 users_menu() {
     while true; do
         clear
-        echo -e "${LILAC}╔════════════════════════════════╗${NC}"
-        echo -e "${CYAN} █ G E R E N C I A R  U S U Á R I O S █${NC}"
-        echo -e "${LILAC}╠════════════════════════════════╣${NC}"
-        echo -e "${LILAC}1) Adicionar usuário${NC}"
-        echo -e "${LILAC}2) Remover usuário${NC}"
-        echo -e "${LILAC}3) Lista de usuários${NC}"
-        echo -e "${LILAC}4) Usuários expirados${NC}"
-        echo -e "${LILAC}5) Deletar todos os usuários${NC}"
-        echo -e "${LILAC}0) Voltar${NC}"
-        echo -e "${LILAC}╚════════════════════════════════╝${NC}"
-        read -p "Escolha: " gu
-        case $gu in
-            1) adduser ;;
+        echo -e "${BLUE}══════ USUÁRIOS ══════${NC}"
+        echo "1) Adicionar"
+        echo "2) Remover"
+        echo "3) Listar"
+        echo "0) Voltar"
+        read -p "Escolha: " op
+
+        case $op in
+            1) echo "Função adicionar aqui"; sleep 2 ;;
             2) deluser ;;
             3) listar_usuarios ;;
-            4) usuarios_expirados ;;
-            5) del_all_users ;;
             0) break ;;
-            *) echo -e "${RED}Opção inválida!${NC}" ; sleep 1 ;;
         esac
     done
 }
 
 listar_usuarios() {
     clear
-    echo -e "${CYAN}USUÁRIOS ATIVOS${NC}"
-    echo "-------------------------"
-    [ -f "$USERS" ] && cat $USERS || echo "Nenhum usuário cadastrado."
-    read -n1 -r -p "Pressione qualquer tecla para voltar..."
+    echo "USUÁRIOS:"
+    nl -w2 -s') ' $USERS 2>/dev/null || echo "Nenhum usuário."
+    read -p "Enter para voltar"
 }
 
-usuarios_expirados() {
+deluser() {
     clear
-    echo -e "${CYAN}USUÁRIOS EXPIRADOS${NC}"
-    echo "-------------------------"
-    [ -f "$USERS" ] || { echo "Nenhum usuário cadastrado."; read -n1 -r -p "Pressione qualquer tecla para voltar..."; return; }
-    date_now=$(date +%s)
-    while IFS="|" read -r user uuid exp pass; do
-        exp_ts=$(date -d "$exp" +%s 2>/dev/null || echo 0)
-        if [ "$exp_ts" -lt "$date_now" ] && [ "$exp_ts" -ne 0 ]; then
-            echo "$user expirado em $exp"
-        fi
-    done < $USERS
-    read -n1 -r -p "Pressione qualquer tecla para voltar..."
-}
 
-del_all_users() {
-    clear
-    if [ -f "$USERS" ]; then
-        > $USERS
-        echo -e "${RED}Todos os usuários foram deletados!${NC}"
-    else
-        echo "Nenhum usuário cadastrado."
+    if [ ! -f "$USERS" ]; then
+        echo "Nenhum usuário."
+        sleep 2
+        return
     fi
+
+    echo -e "${CYAN}Selecione o usuário para remover:${NC}"
+    nl -w2 -s') ' $USERS
+
+    read -p "Número: " num
+
+    total=$(wc -l < $USERS)
+
+    if [[ ! "$num" =~ ^[0-9]+$ ]] || [ "$num" -lt 1 ] || [ "$num" -gt "$total" ]; then
+        echo -e "${RED}Opção inválida${NC}"
+        sleep 2
+        return
+    fi
+
+    user=$(sed -n "${num}p" $USERS | cut -d '|' -f1)
+
+    sed -i "${num}d" $USERS
+
+    echo -e "${GREEN}Usuário $user removido com sucesso!${NC}"
     sleep 2
 }
 
-# ----------------- CONEXOES -----------------
+# ----------------- CONEXÕES -----------------
 conexoes_menu() {
     while true; do
         clear
-        echo -e "${LILAC}╔════════════════════════════════╗${NC}"
-        echo -e "${CYAN}       █ C O N E X Õ E S █       ${NC}"
-        echo -e "${LILAC}╠════════════════════════════════╣${NC}"
-        echo -e "${LILAC}1) Reiniciar Xray${NC}"
-        echo -e "${LILAC}2) Alterar porta XHTTP TLS${NC}"
-        echo -e "${LILAC}3) Alterar porta Reality${NC}"
-        echo -e "${LILAC}4) Alterar SNI Reality${NC}"
-        echo -e "${LILAC}5) Gerenciar WebSocket${NC}"
-        echo -e "${LILAC}6) Gerenciar SlowDNS${NC}"
-        echo -e "${LILAC}0) Voltar${NC}"
-        echo -e "${LILAC}╚════════════════════════════════╝${NC}"
-        read -p "Escolha: " gx
-        case $gx in
+        echo -e "${BLUE}══════ CONEXÕES ══════${NC}"
+        echo "1) Reiniciar Xray"
+        echo "5) WebSocket"
+        echo "6) SlowDNS"
+        echo "0) Voltar"
+
+        read -p "Escolha: " op
+
+        case $op in
             1)
-                systemctl restart xray >/dev/null 2>&1
-                echo -e "${GREEN}Xray reiniciado com sucesso${NC}"
-                sleep 2
-                ;;
-            2)
-                read -p "Nova porta XHTTP TLS: " nova_porta
-                jq ".inbounds[1].port=$nova_porta" $CONFIG > /tmp/config.json
-                mv /tmp/config.json $CONFIG
-                systemctl restart xray >/dev/null 2>&1
-                echo -e "${GREEN}Porta XHTTP TLS alterada para $nova_porta${NC}"
-                sleep 2
-                ;;
-            3)
-                read -p "Nova porta Reality: " nova_porta
-                jq ".inbounds[2].port=$nova_porta" $CONFIG > /tmp/config.json
-                mv /tmp/config.json $CONFIG
-                systemctl restart xray >/dev/null 2>&1
-                echo -e "${GREEN}Porta Reality alterada para $nova_porta${NC}"
-                sleep 2
-                ;;
-            4)
-                read -p "Novo SNI Reality: " novo_sni
-                jq ".inbounds[2].streamSettings.realitySettings.dest=\"$novo_sni\"" $CONFIG > /tmp/config.json
-                jq ".inbounds[2].streamSettings.realitySettings.serverNames[0]=\"$novo_sni\"" /tmp/config.json > /tmp/config2.json
-                mv /tmp/config2.json $CONFIG
-                systemctl restart xray >/dev/null 2>&1
-                echo -e "${GREEN}SNI alterado para $novo_sni${NC}"
+                systemctl restart xray
+                echo "Reiniciado!"
                 sleep 2
                 ;;
             5) websocket_menu ;;
             6) slowdns_menu ;;
             0) break ;;
-            *) echo -e "${RED}Opção inválida!${NC}" ; sleep 1 ;;
         esac
     done
 }
 
-# ----------------- WEBSOCKET MENU -----------------
+# ----------------- WEBSOCKET -----------------
 websocket_menu() {
     while true; do
         clear
-        echo -e "${LILAC}╔════════════════════════════════╗${NC}"
-        echo -e "${CYAN}       █ W E B S O C K E T █      ${NC}"
-        echo -e "${LILAC}╠════════════════════════════════╣${NC}"
-        echo -e "${LILAC}1) Iniciar WebSocket${NC}"
-        echo -e "${LILAC}2) Parar WebSocket${NC}"
-        echo -e "${LILAC}3) Reiniciar WebSocket${NC}"
-        echo -e "${LILAC}4) Alterar porta WebSocket${NC}"
-        echo -e "${LILAC}0) Voltar${NC}"
-        echo -e "${LILAC}╚════════════════════════════════╝${NC}"
-        read -p "Escolha: " ws
-        case $ws in
+        echo -e "${BLUE}══════ WEBSOCKET ══════${NC}"
+        echo "1) Iniciar"
+        echo "2) Parar"
+        echo "0) Voltar"
+
+        read -p "Escolha: " op
+
+        case $op in
             1)
-                systemctl start xray >/dev/null 2>&1
-                echo -e "${GREEN}WebSocket iniciado${NC}"
+                read -p "Digite a porta: " porta
+
+                check_port $porta || { sleep 2; continue; }
+
+                jq ".inbounds[] |= if (.protocol==\"vless\" or .protocol==\"vmess\") then .port=$porta else . end" $CONFIG > /tmp/config.json
+                mv /tmp/config.json $CONFIG
+
+                systemctl restart xray
+                echo -e "${GREEN}Iniciado na porta $porta${NC}"
                 sleep 2
                 ;;
             2)
-                systemctl stop xray >/dev/null 2>&1
-                echo -e "${RED}WebSocket parado${NC}"
-                sleep 2
-                ;;
-            3)
-                systemctl restart xray >/dev/null 2>&1
-                echo -e "${GREEN}WebSocket reiniciado${NC}"
-                sleep 2
-                ;;
-            4)
-                read -p "Nova porta WebSocket: " nova_porta
-                jq '.inbounds[] | select(.protocol=="vless" or .protocol=="vmess") | .port='"$nova_porta" $CONFIG > /tmp/config.json
-                mv /tmp/config.json $CONFIG
-                systemctl restart xray >/dev/null 2>&1
-                echo -e "${GREEN}Porta WebSocket alterada para $nova_porta${NC}"
+                systemctl stop xray
+                echo "Parado"
                 sleep 2
                 ;;
             0) break ;;
-            *) echo -e "${RED}Opção inválida!${NC}" ; sleep 1 ;;
         esac
     done
 }
 
-# ----------------- SLOWDNS MENU -----------------
+# ----------------- SLOWDNS -----------------
 slowdns_menu() {
+    clear
     if [ ! -f /usr/local/bin/slowdns ]; then
-        echo "SlowDNS não encontrado. Instalando..."
+        echo "Instalando SlowDNS..."
         bash <(curl -sL https://raw.githubusercontent.com/miau4/xray-manager-mult-slowdns/main/install.sh)
     fi
+
+    echo "Abrindo menu SlowDNS..."
+    sleep 1
     bash /usr/local/bin/slowdns
 }
 
-# ----------------- INFO SERVIÇOS -----------------
+# ----------------- INFO -----------------
 info_servicos() {
     clear
-    echo -e "${LILAC}╔════════════════════════════════╗${NC}"
-    echo -e "${CYAN} █ I N F O R M A Ç Õ E S  D O S  S E R V I Ç O S █${NC}"
-    echo -e "${LILAC}╠════════════════════════════════╣${NC}"
-    for svc in xray slowdns; do
-        echo -e "${LILAC}$svc - Status: $(status_service $svc) - Portas: $(port_service $svc)${NC}"
-    done
-    read -n1 -r -p "Pressione qualquer tecla para voltar..."
+    echo "Status:"
+    systemctl status xray | grep Active
+    read -p "Enter..."
 }
 
-# ----------------- AUTO MENU AO LOGIN -----------------
+# ----------------- AUTO START -----------------
 PROFILE_FILE="$HOME/.bash_profile"
 [ ! -f "$PROFILE_FILE" ] && PROFILE_FILE="$HOME/.profile"
 grep -qxF "main_menu" $PROFILE_FILE || echo "main_menu" >> $PROFILE_FILE
 
-# ----------------- INICIAR MENU -----------------
 main_menu
