@@ -1,127 +1,73 @@
 {
-"log": {
-"access": "/var/log/xray/access.log",
-"error": "/var/log/xray/error.log",
-"loglevel": "info"
-},
-
-"api": {
-"services": [
-"HandlerService",
-"LoggerService",
-"StatsService"
-],
-"tag": "api"
-},
-
-"inbounds": [
-{
-"tag": "api",
-"listen": "127.0.0.1",
-"port": 2000,
-"protocol": "dokodemo-door",
-"settings": {
-"address": "127.0.0.1"
-}
-},
-
-```
-{
-  "tag": "vless-xhttp",
-  "listen": "0.0.0.0",
-  "port": 443,
-  "protocol": "vless",
-
-  "settings": {
-    "clients": [
-      {
-        "id": "10c9918e-422e-47f6-b361-5687a6c6aeab",
-        "alterId": 0,
-        "email": "usuario1"
-      }
-    ],
-    "decryption": "none",
-    "fallbacks": []
+  "log": {
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log",
+    "loglevel": "info"
   },
 
-  "streamSettings": {
-    "network": "xhttp",
-    "security": "tls",
-
-    "tlsSettings": {
-      "alpn": [
-        "http/1.1"
-      ],
-      "certificates": [
-        {
-          "certificateFile": "/etc/xray/fullchain.pem",
-          "keyFile": "/etc/xray/privkey.pem"
-        }
-      ]
+  "inbounds": [
+    {
+      "tag": "api",
+      "listen": "127.0.0.1",
+      "port": 2000,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "address": "127.0.0.1"
+      }
     },
 
-    "xhttpSettings": {
-      "headers": null,
-      "host": "",
-      "mode": "",
-      "noSSEHeader": false,
-      "path": "/",
-      "scMaxBufferedPosts": 30,
-      "scMaxEachPostBytes": "1000000",
-      "scStreamUpServerSecs": "20-80",
-      "xPaddingBytes": "100-1000"
+    {
+      "tag": "vless-tls",
+      "port": 443,
+      "protocol": "vless",
+
+      "settings": {
+        "clients": [],
+        "decryption": "none"
+      },
+
+      "streamSettings": {
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+          "certificates": [
+            {
+              "certificateFile": "/etc/xray/fullchain.pem",
+              "keyFile": "/etc/xray/privkey.pem"
+            }
+          ]
+        }
+      }
+    },
+
+    {
+      "tag": "vless-ws",
+      "port": 8080,
+      "protocol": "vless",
+
+      "settings": {
+        "clients": [],
+        "decryption": "none"
+      },
+
+      "streamSettings": {
+        "network": "ws",
+        "security": "none",
+        "wsSettings": {
+          "path": "/ws"
+        }
+      }
     }
-  }
-}
-```
+  ],
 
-],
-
-"outbounds": [
-{
-"protocol": "freedom",
-"tag": "direct"
-},
-{
-"protocol": "blackhole",
-"tag": "blocked"
-}
-],
-
-"policy": {
-"levels": {
-"0": {
-"statsUserDownlink": true,
-"statsUserUplink": true,
-"statsUserOnline": true
-}
-},
-"system": {
-"statsInboundDownlink": true,
-"statsInboundUplink": true
-}
-},
-
-"routing": {
-"domainStrategy": "AsIs",
-"rules": [
-{
-"type": "field",
-"inboundTag": ["api"],
-"outboundTag": "api"
-},
-{
-"type": "field",
-"ip": ["geoip:private"],
-"outboundTag": "blocked"
-},
-{
-"type": "field",
-"protocol": ["bittorrent"],
-"outboundTag": "blocked"
-}
-]
-},
-
-"stats": {}
+  "outbounds": [
+    {
+      "protocol": "freedom",
+      "tag": "direct"
+    },
+    {
+      "protocol": "blackhole",
+      "tag": "blocked"
+    }
+  ]
 }
