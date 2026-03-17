@@ -43,6 +43,7 @@ main_menu() {
         echo -e "${GREEN} 1) Gerenciar Usuários${NC}"
         echo -e "${GREEN} 2) Conexões${NC}"
         echo -e "${GREEN} 3) Info Serviços${NC}"
+        echo -e "${GREEN} 4) Monitor${NC}"
         echo -e "${RED} 0) Sair${NC}"
         echo -e "${BLUE}╚════════════════════════════════════════════╝${NC}"
         read -p "Escolha: " opt
@@ -51,6 +52,7 @@ main_menu() {
             1) users_menu ;;
             2) conexoes_menu ;;
             3) info_servicos ;;
+            4) bash /etc/xray-manager/monitor.sh ;;
             0) exit ;;
             *) echo "Inválido"; sleep 1 ;;
         esac
@@ -65,6 +67,7 @@ users_menu() {
         echo "1) Adicionar"
         echo "2) Remover"
         echo "3) Listar"
+        echo "4) Monitor"
         echo "0) Voltar"
         read -p "Escolha: " op
 
