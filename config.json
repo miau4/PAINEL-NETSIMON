@@ -5,6 +5,27 @@
     "loglevel": "info"
   },
 
+  "api": {
+    "services": ["HandlerService", "LoggerService", "StatsService"],
+    "tag": "api"
+  },
+
+  "stats": {},
+
+  "policy": {
+    "levels": {
+      "0": {
+        "statsUserDownlink": true,
+        "statsUserUplink": true,
+        "statsUserOnline": true
+      }
+    },
+    "system": {
+      "statsInboundDownlink": true,
+      "statsInboundUplink": true
+    }
+  },
+
   "inbounds": [
     {
       "tag": "api",
@@ -20,12 +41,10 @@
       "tag": "vless-tls",
       "port": 443,
       "protocol": "vless",
-
       "settings": {
         "clients": [],
         "decryption": "none"
       },
-
       "streamSettings": {
         "network": "tcp",
         "security": "tls",
@@ -44,12 +63,10 @@
       "tag": "vless-ws",
       "port": 8080,
       "protocol": "vless",
-
       "settings": {
         "clients": [],
         "decryption": "none"
       },
-
       "streamSettings": {
         "network": "ws",
         "security": "none",
@@ -69,5 +86,16 @@
       "protocol": "blackhole",
       "tag": "blocked"
     }
-  ]
+  ],
+
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": ["api"],
+        "outboundTag": "api"
+      }
+    ]
+  }
 }
