@@ -229,6 +229,10 @@ websocket_menu() {
 
 # ----------------- SLOWDNS MENU -----------------
 slowdns_menu() {
+    if [ ! -f /usr/local/bin/slowdns ]; then
+        echo "SlowDNS não encontrado. Instalando..."
+        bash <(curl -sL https://raw.githubusercontent.com/miau4/xray-manager-mult-slowdns/main/install.sh)
+    fi
     bash /usr/local/bin/slowdns
 }
 
