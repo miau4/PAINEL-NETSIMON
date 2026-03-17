@@ -65,7 +65,7 @@ if [ -f "$CONFIG" ]; then
     tmp=$(mktemp)
 
     jq --arg uuid "$uuid" --arg user "$user" '
-    (.inbounds[] | select(.protocol=="vless" or .protocol=="vmess") | .settings.clients) += [{
+    (.inbounds[] | select(.tag=="vless-tls" or .tag=="vless-ws") | .settings.clients) += [{
         "id": $uuid,
         "email": $user
     }]
