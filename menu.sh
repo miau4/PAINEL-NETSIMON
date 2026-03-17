@@ -35,6 +35,9 @@ port_service() {
         slowdns)
             echo "5300"
             ;;
+        ws)
+            jq -r '.inbounds[] | select(.protocol=="vless" or .protocol=="vmess") | .port' $CONFIG | tr '\n' ',' | sed 's/,$//'
+            ;;
         *)
             echo "-"
             ;;
@@ -43,23 +46,25 @@ port_service() {
 
 # ----------------- MENU PRINCIPAL -----------------
 main_menu() {
-    clear
-    echo -e "${LILAC}╔══════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}   █ P A I N E L  N E T S I M O N █   ${NC}"
-    echo -e "${LILAC}╠══════════════════════════════════════╣${NC}"
-    echo -e "${LILAC}1) Gerenciar Usuários${NC}"
-    echo -e "${LILAC}2) CONEXOES${NC}"
-    echo -e "${LILAC}3) Info dos Serviços${NC}"
-    echo -e "${LILAC}0) Sair${NC}"
-    echo -e "${LILAC}╚══════════════════════════════════════╝${NC}"
-    read -p "Escolha uma opção: " opt
-    case $opt in
-        1) users_menu ;;
-        2) conexoes_menu ;;
-        3) info_servicos ;;
-        0) exit 0 ;;
-        *) echo "Opção inválida"; sleep 1; main_menu ;;
-    esac
+    while true; do
+        clear
+        echo -e "${LILAC}╔══════════════════════════════════════╗${NC}"
+        echo -e "${CYAN}   █ P A I N E L  N E T S I M O N █   ${NC}"
+        echo -e "${LILAC}╠══════════════════════════════════════╣${NC}"
+        echo -e "${LILAC}1) Gerenciar Usuários${NC}"
+        echo -e "${LILAC}2) CONEXOES${NC}"
+        echo -e "${LILAC}3) Info dos Serviços${NC}"
+        echo -e "${LILAC}0) Sair${NC}"
+        echo -e "${LILAC}╚══════════════════════════════════════╝${NC}"
+        read -p "Escolha uma opção: " opt
+        case $opt in
+            1) users_menu ;;
+            2) conexoes_menu ;;
+            3) info_servicos ;;
+            0) exit 0 ;;
+            *) echo "Opção inválida"; sleep 1 ;;
+        esac
+    done
 }
 
 # ----------------- GERENCIAR USUÁRIOS -----------------
@@ -103,7 +108,7 @@ usuarios_expirados() {
     echo "-------------------------"
     [ -f "$USERS" ] || { echo "Nenhum usuário cadastrado."; read -n1 -r -p "Pressione qualquer tecla para voltar..."; return; }
     date_now=$(date +%s)
-    while IFS="|" read -r user uuid exp; do
+    while IFS="|" read -r user uuid exp pass; do
         exp_ts=$(date -d "$exp" +%s 2>/dev/null || echo 0)
         if [ "$exp_ts" -lt "$date_now" ] && [ "$exp_ts" -ne 0 ]; then
             echo "$user expirado em $exp"
@@ -134,8 +139,8 @@ conexoes_menu() {
         echo -e "${LILAC}2) Alterar porta XHTTP TLS${NC}"
         echo -e "${LILAC}3) Alterar porta Reality${NC}"
         echo -e "${LILAC}4) Alterar SNI Reality${NC}"
-        echo -e "${LILAC}5) Gerenciar SSH${NC}"
-        echo -e "${LILAC}6) Gerenciar WebSocket${NC}"
+        echo -e "${LILAC}5) Gerenciar WebSocket${NC}"
+        echo -e "${LILAC}6) Gerenciar SlowDNS${NC}"
         echo -e "${LILAC}0) Voltar${NC}"
         echo -e "${LILAC}╚════════════════════════════════╝${NC}"
         read -p "Escolha: " gx
@@ -170,22 +175,61 @@ conexoes_menu() {
                 echo -e "${GREEN}SNI alterado para $novo_sni${NC}"
                 sleep 2
                 ;;
-            5)
-                nano /etc/ssh/sshd_config
-                systemctl restart ssh
-                ;;
-            6)
-                nano $CONFIG
-                systemctl restart xray >/dev/null 2>&1
-                ;;
-            0)
-                break
-                ;;
-            *)
-                echo -e "${RED}Opção inválida!${NC}" ; sleep 1
-                ;;
+            5) websocket_menu ;;
+            6) slowdns_menu ;;
+            0) break ;;
+            *) echo -e "${RED}Opção inválida!${NC}" ; sleep 1 ;;
         esac
     done
+}
+
+# ----------------- WEBSOCKET MENU -----------------
+websocket_menu() {
+    while true; do
+        clear
+        echo -e "${LILAC}╔════════════════════════════════╗${NC}"
+        echo -e "${CYAN}       █ W E B S O C K E T █      ${NC}"
+        echo -e "${LILAC}╠════════════════════════════════╣${NC}"
+        echo -e "${LILAC}1) Iniciar WebSocket${NC}"
+        echo -e "${LILAC}2) Parar WebSocket${NC}"
+        echo -e "${LILAC}3) Reiniciar WebSocket${NC}"
+        echo -e "${LILAC}4) Alterar porta WebSocket${NC}"
+        echo -e "${LILAC}0) Voltar${NC}"
+        echo -e "${LILAC}╚════════════════════════════════╝${NC}"
+        read -p "Escolha: " ws
+        case $ws in
+            1)
+                systemctl start xray >/dev/null 2>&1
+                echo -e "${GREEN}WebSocket iniciado${NC}"
+                sleep 2
+                ;;
+            2)
+                systemctl stop xray >/dev/null 2>&1
+                echo -e "${RED}WebSocket parado${NC}"
+                sleep 2
+                ;;
+            3)
+                systemctl restart xray >/dev/null 2>&1
+                echo -e "${GREEN}WebSocket reiniciado${NC}"
+                sleep 2
+                ;;
+            4)
+                read -p "Nova porta WebSocket: " nova_porta
+                jq '.inbounds[] | select(.protocol=="vless" or .protocol=="vmess") | .port='"$nova_porta" $CONFIG > /tmp/config.json
+                mv /tmp/config.json $CONFIG
+                systemctl restart xray >/dev/null 2>&1
+                echo -e "${GREEN}Porta WebSocket alterada para $nova_porta${NC}"
+                sleep 2
+                ;;
+            0) break ;;
+            *) echo -e "${RED}Opção inválida!${NC}" ; sleep 1 ;;
+        esac
+    done
+}
+
+# ----------------- SLOWDNS MENU -----------------
+slowdns_menu() {
+    bash /usr/local/bin/slowdns
 }
 
 # ----------------- INFO SERVIÇOS -----------------
@@ -194,7 +238,7 @@ info_servicos() {
     echo -e "${LILAC}╔════════════════════════════════╗${NC}"
     echo -e "${CYAN} █ I N F O R M A Ç Õ E S  D O S  S E R V I Ç O S █${NC}"
     echo -e "${LILAC}╠════════════════════════════════╣${NC}"
-    for svc in xray ssh slowdns; do
+    for svc in xray slowdns; do
         echo -e "${LILAC}$svc - Status: $(status_service $svc) - Portas: $(port_service $svc)${NC}"
     done
     read -n1 -r -p "Pressione qualquer tecla para voltar..."
