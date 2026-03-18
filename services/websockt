@@ -1,1 +1,35 @@
 
+```bash
+#!/bin/bash
+
+clear
+echo "=== INSTALAÇÃO WEBSOCKET ==="
+
+read -p "Digite seu domínio: " DOMAIN
+
+apt update -y
+apt install nginx -y
+
+mkdir -p /etc/nginx/sites-enabled
+
+cat > /etc/nginx/sites-enabled/ws.conf <<EOF
+server {
+    listen 80;
+    server_name $DOMAIN;
+
+    location /ws {
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:10000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+    }
+}
+EOF
+
+systemctl restart nginx
+systemctl enable nginx
+
+echo "WebSocket configurado em /ws"
+```
