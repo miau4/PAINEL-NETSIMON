@@ -18,7 +18,8 @@ echo "[1] Instalar Xray"
 echo "[2] Instalar SlowDNS"
 echo "[3] Instalar V2Ray"
 echo "[4] Instalar Websocket"
-echo "[5] Ver Serviços Ativos"
+echo "[5] Domínio + SSL"
+echo "[6] Ver Serviços Ativos"
 echo "[0] Voltar"
 read -p "Escolha: " op
 
@@ -27,7 +28,8 @@ case $op in
 2) bash /etc/painel/services/slowdns.sh ;;
 3) bash /etc/painel/services/v2ray.sh ;;
 4) bash /etc/painel/services/Websocket.sh ;;
-5) cat /etc/painel/data/services.conf ;;
+5) bash /etc/painel/core/domain.sh ;;
+6) cat /etc/painel/data/services.conf ;;
 0) main ;;
 esac
 }
