@@ -1,46 +1,33 @@
+```bash
 #!/bin/bash
+
 USERS="/etc/xray-manager/users.xray"
+LOG="/var/log/xray/access.log"
 
-if [ ! -f "$USERS" ] || [ ! -s "$USERS" ]; then
-    echo "Nenhum usuário cadastrado."
-    exit 1
-fi
+echo "=== ONLINE REAL (últimos 60s) ==="
 
-echo -e "Usuários online/offline:"
+NOW=$(date +%s)
 
-# Criar arrays
-online_list=()
-offline_list=()
+while IFS='|' read -r user uuid exp pass limit; do
 
-while IFS=: read -r name pass uuid exp; do
-    if grep -q "$uuid" /var/log/xray/access.log; then
-        online_list+=("$name - Online - UUID: $uuid - Expira: $exp")
+    online=0
+
+    grep "$uuid" $LOG | tail -n 20 | while read line; do
+        log_time=$(echo "$line" | awk '{print $1" "$2}')
+        log_ts=$(date -d "$log_time" +%s 2>/dev/null)
+
+        diff=$((NOW - log_ts))
+
+        if [ "$diff" -le 60 ]; then
+            online=1
+        fi
+    done
+
+    if [ "$online" -eq 1 ]; then
+        echo "$user - ONLINE"
     else
-        offline_list+=("$name - Offline - UUID: $uuid - Expira: $exp")
+        echo "$user - OFFLINE"
     fi
+
 done < "$USERS"
-
-# Mostrar primeiro online, depois offline
-for u in "${online_list[@]}"; do
-    echo -e "$u"
-done
-for u in "${offline_list[@]}"; do
-    echo -e "$u"
-done
-
-#!/bin/bash
-USERS="/etc/xray-manager/users.xray"
-
-echo -e "Tempo conectado dos usuários:"
-
-while IFS=: read -r name pass uuid exp; do
-    # Verificar se o usuário está online no log
-    last_login=$(grep "$uuid" /var/log/xray/access.log | tail -n1 | awk '{print $1" "$2}')
-    if [ -n "$last_login" ]; then
-        # Calcular tempo online em minutos
-        online_time=$(( ($(date +%s) - $(date -d "$last_login" +%s)) / 60 ))
-    else
-        online_time=0
-    fi
-    echo "$name - $online_time minutos"
-done < "$USERS"
+```
