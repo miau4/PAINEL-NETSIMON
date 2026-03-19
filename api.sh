@@ -1,38 +1,103 @@
+```bash
 #!/bin/bash
 
+PORT=8081
+TOKEN="CHANGE_ME_TOKEN"
+
 USERS="/etc/xray-manager/users.xray"
+CONFIG="/etc/xray/config.json"
 
-case "$1" in
+echo "🚀 API NETSIMON INICIADA NA PORTA $PORT"
 
-list)
-    echo "["
-    while IFS="|" read -r user uuid exp pass limit; do
-        echo "  {\"user\":\"$user\",\"uuid\":\"$uuid\",\"exp\":\"$exp\",\"limit\":\"$limit\"},"
-    done < "$USERS" | sed '$ s/,$//'
-    echo "]"
-;;
+while true; do
 
-online)
-    xray api statsquery --pattern "user>>>*" 2>/dev/null | grep "online"
-;;
+REQUEST=$(nc -l -p $PORT -q 1)
 
-drop)
-    user="$2"
-    xray api statsquery --reset --pattern "user>>>$user>>>*" 2>/dev/null
-    echo "Usuário derrubado"
-;;
+BODY=$(echo "$REQUEST" | sed -n '/^{/,$p')
 
-ips)
-    user="$2"
-    grep "$user" /var/log/xray/access.log | tail -n 50 | awk '{print $3}' | cut -d: -f1 | sort | uniq
-;;
+ACTION=$(echo "$BODY" | grep -oP '"action":"\K[^"]+')
+USER=$(echo "$BODY" | grep -oP '"user":"\K[^"]+')
+PASS=$(echo "$BODY" | grep -oP '"pass":"\K[^"]+')
+LIMIT=$(echo "$BODY" | grep -oP '"limit":\K[0-9]+')
+TOKEN_REQ=$(echo "$BODY" | grep -oP '"token":"\K[^"]+')
 
-*)
-    echo "Uso:"
-    echo "api.sh list"
-    echo "api.sh online"
-    echo "api.sh drop usuario"
-    echo "api.sh ips usuario"
-;;
+# ===============================
+# AUTH
+# ===============================
+if [ "$TOKEN_REQ" != "$TOKEN" ]; then
+    echo -e "HTTP/1.1 403 Forbidden\n"
+    echo '{"status":"error","msg":"invalid token"}'
+    continue
+fi
 
-esac
+# ===============================
+# ADD USER
+# ===============================
+if [ "$ACTION" == "add_user" ]; then
+
+UUID=$(cat /proc/sys/kernel/random/uuid)
+EXP=$(date -d "+1 day" +"%Y-%m-%d")
+
+echo "$USER|$UUID|$EXP|$PASS|$LIMIT" >> $USERS
+
+jq --arg uuid "$UUID" --arg email "$USER" '
+.inbounds[].settings.clients += [{"id": $uuid, "email": $email}]
+' $CONFIG > /tmp/config.json && mv /tmp/config.json $CONFIG
+
+systemctl restart xray
+
+echo -e "HTTP/1.1 200 OK\n"
+echo "{\"status\":\"ok\"}"
+continue
+fi
+
+# ===============================
+# ONLINE
+# ===============================
+if [ "$ACTION" == "online" ]; then
+
+ONLINE=$(xray api statsquery --pattern "user>>>" 2>/dev/null | grep online | wc -l
+
+echo -e "HTTP/1.1 200 OK\n"
+echo "{\"online\":$ONLINE}"
+continue
+fi
+
+# ===============================
+# LIST USERS
+# ===============================
+if [ "$ACTION" == "list_users" ]; then
+
+DATA=$(cat $USERS | tr '\n' ';')
+
+echo -e "HTTP/1.1 200 OK\n"
+echo "{\"users\":\"$DATA\"}"
+continue
+fi
+
+# ===============================
+# DELETE USER
+# ===============================
+if [ "$ACTION" == "del_user" ]; then
+
+sed -i "/^$USER|/d" $USERS
+
+jq --arg email "$USER" '
+.inbounds[].settings.clients |= map(select(.email != $email))
+' $CONFIG > /tmp/config.json && mv /tmp/config.json $CONFIG
+
+systemctl restart xray
+
+echo -e "HTTP/1.1 200 OK\n"
+echo "{\"status\":\"deleted\"}"
+continue
+fi
+
+# ===============================
+# DEFAULT
+# ===============================
+echo -e "HTTP/1.1 400 Bad Request\n"
+echo '{"status":"invalid action"}'
+
+done
+```
