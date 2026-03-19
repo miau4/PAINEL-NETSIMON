@@ -1,146 +1,202 @@
 ```bash
 #!/bin/bash
 
-# ================= CORES =================
-GREEN='\033[1;32m'
-CYAN='\033[1;36m'
-YELLOW='\033[1;33m'
+# ===============================
+# CONFIG
+# ===============================
+USERS="/etc/xray-manager/users.xray"
+BLOCKED="/etc/xray-manager/blocked.db"
+
+# ===============================
+# CORES
+# ===============================
 RED='\033[1;31m'
+GREEN='\033[1;32m'
+YELLOW='\033[1;33m'
 BLUE='\033[1;34m'
+CYAN='\033[1;36m'
+WHITE='\033[1;37m'
 NC='\033[0m'
 
-# ================= INFO VPS =================
-IP=$(curl -s ifconfig.me)
-OS=$(lsb_release -ds 2>/dev/null)
-UPTIME=$(uptime -p | sed 's/up //')
-CPU=$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}')
-RAM=$(free -m | awk '/Mem:/ {print $3"MB / "$2"MB"}')
-DATE=$(date '+%d/%m/%Y %H:%M:%S')
+# ===============================
+# BARRA
+# ===============================
+bar() {
+    percent=$1
+    size=20
+    filled=$((percent * size / 100))
+    empty=$((size - filled))
 
-# ================= HEADER =================
-function header(){
+    printf "["
+    for ((i=0;i<filled;i++)); do printf "#"; done
+    for ((i=0;i<empty;i++)); do printf "-"; done
+    printf "] %d%%" "$percent"
+}
+
+# ===============================
+# STATUS
+# ===============================
+get_total() { [[ -f "$USERS" ]] && wc -l < "$USERS" || echo 0; }
+get_blocked() { [[ -f "$BLOCKED" ]] && wc -l < "$BLOCKED" || echo 0; }
+
+get_online() {
+    xray api statsquery --pattern "user>>>" 2>/dev/null | grep online | wc -l
+}
+
+get_cpu() { top -bn1 | grep "Cpu(s)" | awk '{print int($2)}'; }
+get_ram() { free | awk '/Mem:/ {printf("%d"), $3/$2 * 100}'; }
+get_disk() { df / | awk 'NR==2 {gsub("%",""); print $5}'; }
+get_ip() { hostname -I | awk '{print $1}'; }
+
+status_xray() { systemctl is-active xray; }
+status_limiter() { pgrep -f limit.sh > /dev/null && echo "ON" || echo "OFF"; }
+status_unblock() { pgrep -f unblock.sh > /dev/null && echo "ON" || echo "OFF"; }
+
+# ===============================
+# LOOP
+# ===============================
+while true; do
 clear
-echo -e "${BLUE}==================================================${NC}"
-echo -e "${CYAN}        NETSIMON - PAINEL DE CONTROLE${NC}"
-echo -e "${BLUE}==================================================${NC}"
 
-echo -e "${YELLOW}INFORMAÇÕES DA VPS${NC}"
-echo -e " IP: $IP                SO: $OS"
-echo -e " Uptime: $UPTIME        Hora: $DATE"
-echo -e " CPU: $CPU%             Memória: $RAM"
-echo -e "${BLUE}==================================================${NC}"
-}
+TOTAL=$(get_total)
+ONLINE=$(get_online)
+BLOCKED_COUNT=$(get_blocked)
 
-# ================= STATUS =================
-function status_bar(){
-XRAY=$(systemctl is-active xray 2>/dev/null)
-SLOW=$(systemctl is-active slowdns-server 2>/dev/null)
-WS=$(systemctl is-active nginx 2>/dev/null)
+CPU=$(get_cpu)
+RAM=$(get_ram)
+DISK=$(get_disk)
 
-echo -e "${GREEN} XRAY: $XRAY | SLOWDNS: $SLOW | WEBSOCKET: $WS ${NC}"
-echo -e "${BLUE}==================================================${NC}"
-}
+IP=$(get_ip)
 
-# ================= MENU =================
-function menu(){
-header
-status_bar
+XRAY=$(status_xray)
+LIMITER=$(status_limiter)
+UNBLOCK=$(status_unblock)
 
-echo -e "${CYAN}MENU${NC}"
+echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║${WHITE}              🚀 NETSIMON ENTERPRISE PANEL 🚀                ${CYAN}║${NC}"
+echo -e "${CYAN}╠══════════════════════════════════════════════════════════════╣${NC}"
+
+printf "${CYAN}║${NC} ${GREEN}Users:${NC} %-5s ${GREEN}Online:${NC} %-5s ${RED}Blocked:${NC} %-5s ${CYAN}║\n" "$TOTAL" "$ONLINE" "$BLOCKED_COUNT"
+printf "${CYAN}║${NC} ${GREEN}IP:${NC} %-15s ${GREEN}Xray:${NC} %-8s ${YELLOW}Limiter:${NC} %-3s ${YELLOW}Unblock:${NC} %-3s ${CYAN}║\n" "$IP" "$XRAY" "$LIMITER" "$UNBLOCK"
+
+printf "${CYAN}║${NC} CPU  "; bar $CPU; printf "   ${CYAN}║\n"
+printf "${CYAN}║${NC} RAM  "; bar $RAM; printf "   ${CYAN}║\n"
+printf "${CYAN}║${NC} DISK "; bar $DISK; printf "   ${CYAN}║\n"
+
+echo -e "${CYAN}╠══════════════════════════════════════════════════════════════╣${NC}"
+
+# ===============================
+# MENU (21 OPÇÕES)
+# ===============================
+
+printf "${CYAN}║${WHITE} 01) Criar Usuário        ${CYAN}│${WHITE} 11) Ativar Limiter        ${CYAN}║\n"
+printf "${CYAN}║${WHITE} 02) Criar Usuário TESTE  ${CYAN}│${WHITE} 12) Parar Limiter         ${CYAN}║\n"
+printf "${CYAN}║${WHITE} 03) Remover Usuário      ${CYAN}│${WHITE} 13) Status Limiter        ${CYAN}║\n"
+printf "${CYAN}║${WHITE} 04) Listar Usuários      ${CYAN}│${WHITE} 14) WebSocket Manager     ${CYAN}║\n"
+printf "${CYAN}║${WHITE} 05) Usuários Online      ${CYAN}│${WHITE} 15) SlowDNS Manager       ${CYAN}║\n"
+printf "${CYAN}║${WHITE} 06) Ver Bloqueados       ${CYAN}│${WHITE} 16) Xray Manager          ${CYAN}║\n"
+printf "${CYAN}║${WHITE} 07) Desbloquear Usuário  ${CYAN}│${WHITE} 17) Monitor Tempo Real    ${CYAN}║\n"
+printf "${CYAN}║${WHITE} 08) Limpar Bloqueios     ${CYAN}│${WHITE} 18) Ver Logs              ${CYAN}║\n"
+printf "${CYAN}║${WHITE} 09) Reiniciar Xray       ${CYAN}│${WHITE} 19) Backup Config         ${CYAN}║\n"
+printf "${CYAN}║${WHITE} 10) Reparar Sistema      ${CYAN}│${WHITE} 00) Sair                  ${CYAN}║\n"
+
+echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
+
 echo ""
-echo -e "[01] GERENCIAR USUÁRIOS        [08] FUNÇÕES EXTRAS"
-echo -e "[02] GERENCIAR SSH             [09] TESTE VELOCIDADE"
-echo -e "[03] GERENCIAR V2RAY           [10] OTIMIZAR VPS"
-echo -e "[04] GERENCIAR XRAY            [11] INFO SISTEMA"
-echo -e "[05] GERENCIAR SLOWDNS         [12] GERENCIAR BADVPN"
-echo -e "[06] GERENCIAR WEBSOCKET       [13] BACKUP"
-echo -e "[07] LIMITER USUÁRIOS          [14] SAIR"
-echo ""
-
-read -p "Digite a opção: " op
-
-case $op in
-
-1) echo "EM CONSTRUÇÃO" ;;
-2) echo "EM CONSTRUÇÃO" ;;
-3) bash /etc/painel/services/v2ray.sh ;;
-4) menu_xray ;;
-5) menu_slowdns ;;
-6) menu_websocket ;;
-7) echo "EM CONSTRUÇÃO" ;;
-
-8) echo "EM CONSTRUÇÃO" ;;
-9) bash /etc/painel/core/speedtest.sh ;;
-10) apt update && apt upgrade -y ;;
-11) bash /etc/painel/core/system.sh ;;
-12) echo "EM CONSTRUÇÃO" ;;
-13) echo "EM CONSTRUÇÃO" ;;
-14) exit ;;
-
-*) menu ;;
-esac
-}
-
-# ================= XRAY =================
-function menu_xray(){
-clear
-echo "=== XRAY ==="
-echo "[1] Instalar / Reconfigurar"
-echo "[2] Reiniciar"
-echo "[3] Status"
-echo "[0] Voltar"
-
 read -p "Escolha: " op
 
 case $op in
-1) bash /etc/painel/services/xray.sh ;;
-2) systemctl restart xray ;;
-3) systemctl status xray ;;
-0) menu ;;
+
+1) bash adduser.sh ;;
+
+# ===============================
+# 🔥 NOVO: USUÁRIO TESTE
+# ===============================
+2)
+
+echo "Tempo padrão:"
+echo "1) 1 hora"
+echo "2) 2 horas"
+echo "3) 3 horas"
+echo "4) Personalizado"
+
+read -p "Escolha: " t
+
+case $t in
+1) H=1 ;;
+2) H=2 ;;
+3) H=3 ;;
+4) read -p "Digite horas: " H ;;
+*) H=1 ;;
 esac
-}
 
-# ================= SLOWDNS =================
-function menu_slowdns(){
-clear
-echo "=== SLOWDNS ==="
-echo "[1] Instalar Servidor"
-echo "[2] Ver chave"
-echo "[3] Status"
-echo "[4] Reiniciar"
-echo "[0] Voltar"
+USER="teste$(date +%s | tail -c 5)"
+PASS="123"
 
-read -p "Escolha: " op
+UUID=$(cat /proc/sys/kernel/random/uuid)
+EXP=$(date -d "+$H hour" +"%Y-%m-%d %H:%M")
 
-case $op in
-1) bash /etc/painel/services/slowdns-server.sh ;;
-2) cat /etc/slowdns/public.key ;;
-3) systemctl status slowdns-server ;;
-4) systemctl restart slowdns-server ;;
-0) menu ;;
+echo "$USER|$UUID|$EXP|$PASS|1" >> $USERS
+
+# adicionar no xray
+jq --arg uuid "$UUID" --arg email "$USER" '
+.inbounds[].settings.clients += [{"id": $uuid, "email": $email}]
+' /etc/xray/config.json > /tmp/config.json && mv /tmp/config.json /etc/xray/config.json
+
+systemctl restart xray
+
+echo "Usuário TESTE criado!"
+echo "User: $USER"
+echo "Senha: $PASS"
+echo "Expira: $EXP"
+read -p "Enter..."
+
+;;
+
+3) bash deluser.sh ;;
+4) cat $USERS; read -p "Enter..." ;;
+5) bash online.sh; read -p "Enter..." ;;
+6) cat $BLOCKED; read -p "Enter..." ;;
+
+7)
+read -p "Usuário: " user
+sed -i "/^$user|/d" $BLOCKED
+;;
+
+8) > $BLOCKED ;;
+9) systemctl restart xray ;;
+10) bash /etc/xray-manager/repair.sh ;;
+
+11)
+nohup bash /etc/xray-manager/limit.sh &
+nohup bash /etc/xray-manager/unblock.sh &
+;;
+
+12)
+pkill -f limit.sh
+pkill -f unblock.sh
+;;
+
+13)
+ps aux | grep -E "limit.sh|unblock.sh"
+read -p "Enter..."
+;;
+
+14) echo "WebSocket em breve"; sleep 2 ;;
+15) echo "SlowDNS em breve"; sleep 2 ;;
+16) echo "Xray manager em breve"; sleep 2 ;;
+
+17) watch -n 2 "bash online.sh" ;;
+18) tail -f /var/log/xray/access.log ;;
+19)
+cp /etc/xray/config.json /etc/xray/config.backup.json
+;;
+
+0|00) exit ;;
+
+*) echo "Opção inválida"; sleep 1 ;;
+
 esac
-}
 
-# ================= WEBSOCKET =================
-function menu_websocket(){
-clear
-echo "=== WEBSOCKET (NGINX) ==="
-echo "[1] Instalar WebSocket"
-echo "[2] Configurar"
-echo "[3] Reiniciar"
-echo "[4] Status"
-echo "[0] Voltar"
-
-read -p "Escolha: " op
-
-case $op in
-1) bash /etc/painel/services/websocket.sh ;;
-2) nano /etc/nginx/sites-enabled/ws.conf ;;
-3) systemctl restart nginx ;;
-4) systemctl status nginx ;;
-0) menu ;;
-esac
-}
-
-menu
+done
 ```
