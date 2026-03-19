@@ -1,11 +1,31 @@
-
-```bash
 #!/bin/bash
 
+clear
+
+while true; do
+echo "======================================="
+echo "        WEBSOCKET MANAGER"
+echo "======================================="
+echo "1) Instalar WebSocket"
+echo "2) Reiniciar Nginx"
+echo "3) Remover WebSocket"
+echo "0) Voltar"
+echo "======================================="
+read -p "Escolha: " op
+
+case $op in
+
+1)
 clear
 echo "=== INSTALAÇÃO WEBSOCKET ==="
 
 read -p "Digite seu domínio: " DOMAIN
+
+if [[ -z "$DOMAIN" ]]; then
+  echo "Domínio inválido!"
+  read -p "Enter para continuar..."
+  continue
+fi
 
 apt update -y
 apt install nginx -y
@@ -31,5 +51,30 @@ EOF
 systemctl restart nginx
 systemctl enable nginx
 
-echo "WebSocket configurado em /ws"
-```
+echo "WebSocket configurado em http://$DOMAIN/ws"
+read -p "Enter para continuar..."
+;;
+
+2)
+systemctl restart nginx
+echo "Nginx reiniciado!"
+read -p "Enter para continuar..."
+;;
+
+3)
+rm -f /etc/nginx/sites-enabled/ws.conf
+systemctl restart nginx
+echo "WebSocket removido!"
+read -p "Enter para continuar..."
+;;
+
+0)
+break
+;;
+
+*)
+echo "Opção inválida!"
+;;
+
+esac
+done
