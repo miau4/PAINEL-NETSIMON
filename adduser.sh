@@ -8,6 +8,10 @@ echo "════════════════════════�
 echo "     ➕ CRIAR USUÁRIO PRO"
 echo "══════════════════════════════"
 
+# ----------------- GARANTIA DE ARQUIVOS -----------------
+mkdir -p /etc/xray-manager
+[ ! -f "$USERS" ] && touch "$USERS"
+
 # ----------------- INPUT -----------------
 read -p "Nome do usuário: " user
 
@@ -34,8 +38,16 @@ read -p "Limite de IPs simultâneos (ex: 1,2,3): " limit
 [[ ! "$limit" =~ ^[0-9]+$ ]] && limit=1
 
 # ----------------- GERAR -----------------
-uuid=$(uuidgen)
-exp_date=$(date -d "+$dias days" +"%Y-%m-%d")
+uuid=$(cat /proc/sys/kernel/random/uuid 2>/dev/null)
+[ -z "$uuid" ] && uuid=$(uuidgen 2>/dev/null)
+
+exp_date=$(date -d "+$dias days" +"%Y-%m-%d" 2>/dev/null)
+
+if [ -z "$uuid" ] || [ -z "$exp_date" ]; then
+    echo "Erro ao gerar dados do usuário!"
+    sleep 2
+    exit
+fi
 
 # ----------------- CONFIRMAÇÃO -----------------
 clear
@@ -51,23 +63,34 @@ read -p "Confirmar? (s/n): " confirm
 [[ "$confirm" != "s" && "$confirm" != "S" ]] && exit
 
 # ----------------- SALVAR -----------------
-mkdir -p /etc/xray-manager
-
-# formato sem horário agora
-echo "$user|$uuid|$exp_date|$pass|$limit" >> $USERS
+echo "$user|$uuid|$exp_date|$pass|$limit" >> "$USERS"
 
 # ----------------- XRAY CONFIG -----------------
 if [ -f "$CONFIG" ]; then
-    tmp=$(mktemp)
 
-    jq --arg uuid "$uuid" --arg user "$user" '
-    (.inbounds[] | select(.protocol=="vless" or .protocol=="vmess") | .settings.clients) += [{
-        "id": $uuid,
-        "email": $user
-    }]
-    ' "$CONFIG" > "$tmp" && mv "$tmp" "$CONFIG"
+    command -v jq >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        echo "jq não instalado! usuário criado sem integrar ao Xray."
+    else
+        tmp=$(mktemp)
 
-    systemctl restart xray
+        jq --arg uuid "$uuid" --arg user "$user" '
+        (.inbounds[] | select(.protocol=="vless" or .protocol=="vmess") | .settings.clients) += [{
+            "id": $uuid,
+            "email": $user
+        }]
+        ' "$CONFIG" > "$tmp"
+
+        if [ $? -eq 0 ] && [ -s "$tmp" ]; then
+            mv "$tmp" "$CONFIG"
+            systemctl restart xray 2>/dev/null
+        else
+            echo "Erro ao atualizar config.json (JSON inválido)"
+            rm -f "$tmp"
+        fi
+    fi
+else
+    echo "config.json não encontrado! usuário criado apenas no banco."
 fi
 
 # ----------------- RESULTADO -----------------
