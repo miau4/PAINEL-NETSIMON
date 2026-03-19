@@ -7,13 +7,24 @@ USERDB="/etc/xray-manager/users.xray"
 clear
 
 # ===============================
-# GARANTIA DE ESTRUTURA
+# GARANTIA DE ARQUIVOS
 # ===============================
-mkdir -p "$BASE/services"
-mkdir -p /etc/xray-manager
+[ ! -d "$BASE" ] && mkdir -p "$BASE"
+[ ! -d "/etc/xray-manager" ] && mkdir -p /etc/xray-manager
 
-touch "$USERDB"
-touch /etc/xray-manager/blocked.db
+[ ! -f "$USERDB" ] && touch "$USERDB"
+[ ! -f "/etc/xray-manager/blocked.db" ] && touch /etc/xray-manager/blocked.db
+
+if [ ! -f "$CONFIG" ]; then
+    echo "[ERRO] config.json não encontrado!"
+    exit 1
+fi
+
+# ===============================
+# CONFIG
+# ===============================
+USERS="/etc/xray-manager/users.xray"
+BLOCKED="/etc/xray-manager/blocked.db"
 
 # ===============================
 # CORES
@@ -21,32 +32,88 @@ touch /etc/xray-manager/blocked.db
 RED='\033[1;31m'
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[1;34m'
 CYAN='\033[1;36m'
 WHITE='\033[1;37m'
 NC='\033[0m'
 
 # ===============================
-# FUNÇÃO EXECUTAR SERVIÇO (ANTI BUG)
+# BARRA
+# ===============================
+bar() {
+    percent=$1
+
+    [[ -z "$percent" ]] && percent=0
+    [[ "$percent" -gt 100 ]] && percent=100
+    [[ "$percent" -lt 0 ]] && percent=0
+
+    size=20
+    filled=$((percent * size / 100))
+    empty=$((size - filled))
+
+    printf "["
+    for ((i=0;i<filled;i++)); do printf "#"; done
+    for ((i=0;i<empty;i++)); do printf "-"; done
+    printf "] %d%%" "$percent"
+}
+
+# ===============================
+# STATUS
+# ===============================
+get_total() { [[ -f "$USERS" ]] && wc -l < "$USERS" || echo 0; }
+get_blocked() { [[ -f "$BLOCKED" ]] && wc -l < "$BLOCKED" || echo 0; }
+
+get_online() {
+    command -v xray >/dev/null 2>&1 || echo 0 && return
+    xray api statsquery --pattern "user>>>" 2>/dev/null | grep online | wc -l
+}
+
+get_cpu() {
+    top -bn1 2>/dev/null | grep "Cpu(s)" | awk '{print int($2)}' || echo 0
+}
+
+get_ram() {
+    free 2>/dev/null | awk '/Mem:/ {printf("%d"), $3/$2 * 100}' || echo 0
+}
+
+get_disk() {
+    df / 2>/dev/null | awk 'NR==2 {gsub("%",""); print $5}' || echo 0
+}
+
+get_ip() {
+    hostname -I 2>/dev/null | awk '{print $1}'
+}
+
+status_xray() {
+    systemctl is-active xray 2>/dev/null || echo "inactive"
+}
+
+status_limiter() {
+    pgrep -f limit.sh > /dev/null && echo "ON" || echo "OFF"
+}
+
+status_unblock() {
+    pgrep -f unblock.sh > /dev/null && echo "ON" || echo "OFF"
+}
+
+# ===============================
+# EXECUTOR DE SERVIÇOS (FIX BUG MENU)
 # ===============================
 run_service() {
     FILE="$1"
 
     if [ ! -f "$FILE" ]; then
-        echo -e "${RED}Arquivo não encontrado:${NC} $FILE"
+        echo "Arquivo não encontrado: $FILE"
         read -p "Enter..."
         return
     fi
 
     chmod +x "$FILE"
 
-    clear
-    echo -e "${CYAN}Executando:${NC} $FILE"
-    echo ""
-
     bash "$FILE"
 
     echo ""
-    read -p "Pressione ENTER para voltar ao menu..."
+    read -p "Pressione ENTER para voltar..."
 }
 
 # ===============================
@@ -55,8 +122,31 @@ run_service() {
 while true; do
 clear
 
+TOTAL=$(get_total)
+ONLINE=$(get_online)
+BLOCKED_COUNT=$(get_blocked)
+
+CPU=$(get_cpu)
+RAM=$(get_ram)
+DISK=$(get_disk)
+
+IP=$(get_ip)
+
+XRAY=$(status_xray)
+LIMITER=$(status_limiter)
+UNBLOCK=$(status_unblock)
+
 echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${CYAN}║${WHITE}              🚀 NETSIMON ENTERPRISE PANEL 🚀                ${CYAN}║${NC}"
+echo -e "${CYAN}╠══════════════════════════════════════════════════════════════╣${NC}"
+
+printf "${CYAN}║${NC} ${GREEN}Users:${NC} %-5s ${GREEN}Online:${NC} %-5s ${RED}Blocked:${NC} %-5s ${CYAN}║\n" "$TOTAL" "$ONLINE" "$BLOCKED_COUNT"
+printf "${CYAN}║${NC} ${GREEN}IP:${NC} %-15s ${GREEN}Xray:${NC} %-8s ${YELLOW}Limiter:${NC} %-3s ${YELLOW}Unblock:${NC} %-3s ${CYAN}║\n" "$IP" "$XRAY" "$LIMITER" "$UNBLOCK"
+
+printf "${CYAN}║${NC} CPU  "; bar "$CPU"; printf "   ${CYAN}║\n"
+printf "${CYAN}║${NC} RAM  "; bar "$RAM"; printf "   ${CYAN}║\n"
+printf "${CYAN}║${NC} DISK "; bar "$DISK"; printf "   ${CYAN}║\n"
+
 echo -e "${CYAN}╠══════════════════════════════════════════════════════════════╣${NC}"
 
 printf "${CYAN}║${WHITE} 01) Criar Usuário        ${CYAN}│${WHITE} 11) Ativar Limiter        ${CYAN}║\n"
@@ -77,19 +167,19 @@ read -p "Escolha: " op
 
 case $op in
 
-1) run_service "$BASE/adduser.sh" ;;
-2) run_service "$BASE/adduser.sh" ;;
-3) run_service "$BASE/deluser.sh" ;;
-4) cat "$USERDB"; read -p "Enter..." ;;
-5) run_service "$BASE/online.sh" ;;
-6) cat /etc/xray-manager/blocked.db; read -p "Enter..." ;;
+1) bash "$BASE/adduser.sh" ;;
+2) bash "$BASE/adduser.sh" ;; # mantive sua lógica simplificada aqui
+3) bash "$BASE/deluser.sh" ;;
+4) cat "$USERS"; read -p "Enter..." ;;
+5) bash "$BASE/online.sh"; read -p "Enter..." ;;
+6) cat "$BLOCKED"; read -p "Enter..." ;;
 
 7)
 read -p "Usuário: " user
-sed -i "/^$user|/d" /etc/xray-manager/blocked.db
+sed -i "/^$user|/d" "$BLOCKED"
 ;;
 
-8) > /etc/xray-manager/blocked.db ;;
+8) > "$BLOCKED" ;;
 9) systemctl restart xray ;;
 10) bash /etc/xray-manager/repair.sh ;;
 
@@ -108,7 +198,7 @@ ps aux | grep -E "limit.sh|unblock.sh"
 read -p "Enter..."
 ;;
 
-# 🔥 AGORA 100% FUNCIONAL
+# 🔥 AGORA FUNCIONAL
 14) run_service "$BASE/services/websock.sh" ;;
 15) run_service "$BASE/services/slowdns-server.sh" ;;
 16) run_service "$BASE/services/xray.sh" ;;
