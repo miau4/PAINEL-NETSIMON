@@ -1,44 +1,84 @@
-```bash
 #!/bin/bash
 
 clear
-echo "=== INSTALANDO PAINEL BASE ==="
+echo "=== INSTALANDO NETSIMON PANEL (MODULAR) ==="
 
-apt update -y
-apt install curl wget unzip -y
+# ===============================
+# VERIFICA ROOT
+# ===============================
+if [ "$EUID" -ne 0 ]; then
+  echo "Execute como root!"
+  exit 1
+fi
 
+# ===============================
+# CORRIGE POSSÍVEL CRLF
+# ===============================
+sed -i 's/\r$//' "$0" 2>/dev/null
+
+# ===============================
+# DEPENDÊNCIAS (SEM WARNING)
+# ===============================
+echo "[+] Instalando dependências..."
+apt-get update -y >/dev/null 2>&1
+apt-get install -y curl wget unzip jq >/dev/null 2>&1
+
+# ===============================
+# ESTRUTURA
+# ===============================
+echo "[+] Criando estrutura..."
 mkdir -p /etc/painel/{core,services,data}
+mkdir -p /etc/xray-manager
 
-# Baixar arquivos do GitHub (ajuste seu repo)
-BASE_URL="https://raw.githubusercontent.com/miau4/PAINEL-NETSIMON/main"
-
-wget -O /etc/painel/menu.sh $BASE_URL/menu.sh
-wget -O /etc/painel/core/utils.sh $BASE_URL/core/utils.sh
-
-chmod +x /etc/painel/menu.sh
-
-# Atalho global
-ln -sf /etc/painel/menu.sh /usr/bin/painel
-
-echo "[] > /etc/painel/data/services.conf" > /dev/null
-
-```bash
 # ===============================
-# INSTALAR API
+# BASE DE DADOS
 # ===============================
+touch /etc/xray-manager/users.xray
+touch /etc/xray-manager/blocked.db
 
-echo "Instalando API..."
+# ===============================
+# VALIDAR MENU EXISTENTE
+# ===============================
+MENU_PATH="/etc/painel/menu.sh"
 
-wget -O /etc/xray-manager/api.sh https://raw.githubusercontent.com/miau4/PAINEL-NETSIMON/main/api.sh
+if [ ! -f "$MENU_PATH" ]; then
+  echo ""
+  echo "[ERRO] menu.sh NÃO encontrado em $MENU_PATH"
+  echo "Envie o menu antes de rodar o install"
+  exit 1
+fi
 
-chmod +x /etc/xray-manager/api.sh
+# ===============================
+# PERMISSÕES
+# ===============================
+echo "[+] Ajustando permissões..."
+chmod +x $MENU_PATH
 
-# iniciar api
-nohup bash /etc/xray-manager/api.sh > /dev/null 2>&1 &
+# ===============================
+# COMANDO GLOBAL
+# ===============================
+echo "[+] Criando comando global..."
+ln -sf $MENU_PATH /usr/local/bin/menu
+chmod +x /usr/local/bin/menu
 
-echo "API instalada e iniciada!"
-```
+# ===============================
+# TESTE DE EXECUÇÃO
+# ===============================
+echo "[+] Testando menu..."
 
+if bash $MENU_PATH >/dev/null 2>&1; then
+  echo "[OK] Menu executável"
+else
+  echo "[AVISO] Menu possui erro interno (verifique manualmente)"
+fi
 
-echo "INSTALADO! Use: painel"
-```
+# ===============================
+# FINAL
+# ===============================
+clear
+echo "==============================="
+echo " INSTALAÇÃO CONCLUÍDA"
+echo "==============================="
+echo ""
+echo "Digite: menu"
+echo ""
