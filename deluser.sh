@@ -10,7 +10,7 @@ clear
 echo "========== REMOVER USUÁRIO =========="
 
 # lista usuários numerados
-mapfile -t lista < <(cut -d'|' -f1 "$USERS")
+mapfile -t lista < <(cut -d'|' -f1 "$USERS" 2>/dev/null)
 
 if [ ${#lista[@]} -eq 0 ]; then
     echo "Nenhum usuário encontrado."
@@ -35,19 +35,44 @@ fi
 user="${lista[$((num-1))]}"
 
 # pega uuid do usuário
-linha=$(grep "^$user|" "$USERS")
+linha=$(grep "^$user|" "$USERS" 2>/dev/null)
 uuid=$(echo "$linha" | cut -d'|' -f2)
 
+# segurança: se não achar uuid, aborta
+if [ -z "$uuid" ]; then
+    echo "Erro ao localizar UUID do usuário!"
+    read -n1 -r -p "Pressione qualquer tecla..."
+    exit
+fi
+
 # remove do arquivo users.xray
-grep -v "^$user|" "$USERS" > /tmp/users.tmp && mv /tmp/users.tmp "$USERS"
+tmp_users=$(mktemp)
+grep -v "^$user|" "$USERS" > "$tmp_users" && mv "$tmp_users" "$USERS"
 
 # remove do config.json (Xray)
-jq --arg uuid "$uuid" '
-(.inbounds[] | select(.protocol=="vless" or .protocol=="vmess") | .settings.clients) |= map(select(.id != $uuid))
-' "$CONFIG" > /tmp/config.json && mv /tmp/config.json "$CONFIG"
+if [ -f "$CONFIG" ]; then
 
-# reinicia serviço
-systemctl restart xray
+    command -v jq >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        echo "jq não instalado! usuário removido apenas do banco."
+    else
+        tmp_config=$(mktemp)
+
+        jq --arg uuid "$uuid" '
+        (.inbounds[] | select(.protocol=="vless" or .protocol=="vmess") | .settings.clients) |= map(select(.id != $uuid))
+        ' "$CONFIG" > "$tmp_config"
+
+        if [ $? -eq 0 ] && [ -s "$tmp_config" ]; then
+            mv "$tmp_config" "$CONFIG"
+            systemctl restart xray 2>/dev/null
+        else
+            echo "Erro ao atualizar config.json (JSON inválido)"
+            rm -f "$tmp_config"
+        fi
+    fi
+else
+    echo "config.json não encontrado! usuário removido apenas do banco."
+fi
 
 echo ""
 echo "======================================"
